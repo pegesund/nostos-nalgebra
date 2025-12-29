@@ -6,6 +6,7 @@ Unlike `glam` (which provides fixed-size Vec2-4), `nalgebra` supports arbitrary-
 
 ## Features
 
+- **Operator overloading**: Use `+`, `-`, `*`, `/` directly on vectors and matrices
 - **Native handles**: Data is stored directly in nalgebra structures, not copied to/from Nostos lists
 - **GC integration**: Memory is automatically freed when handles go out of scope
 - **~9x faster** than pure Nostos list operations for vector/matrix math
@@ -23,26 +24,39 @@ nalgebra = { git = "https://github.com/pegesund/nostos-nalgebra" }
 ## Usage
 
 ```nostos
-main() = {
-    # Create vectors (returns native handle, not a list)
-    v1 = __native__("Nalgebra.dvec", [1.0, 2.0, 3.0, 4.0, 5.0])
-    v2 = __native__("Nalgebra.dvec", [5.0, 4.0, 3.0, 2.0, 1.0])
+import nalgebra
 
-    # Vector operations work directly on native handles
-    sum = __native__("Nalgebra.dvecAdd", v1, v2)
-    dot = __native__("Nalgebra.dvecDot", v1, v2)
-    norm = __native__("Nalgebra.dvecNorm", v1)
+main() = {
+    # Create vectors with the vec() constructor
+    v1 = nalgebra.vec([1.0, 2.0, 3.0, 4.0, 5.0])
+    v2 = nalgebra.vec([5.0, 4.0, 3.0, 2.0, 1.0])
+
+    # Operator overloading!
+    sum = v1 + v2
+    diff = v1 - v2
+    prod = v1 * v2  # Element-wise multiplication
+
+    # Vector operations
+    dot = nalgebra.vecDot(v1, v2)
+    norm = nalgebra.vecNorm(v1)
+    scaled = nalgebra.vecScale(v1, 2.0)
 
     println("Dot product: ${dot}")
     println("Norm: ${norm}")
 
-    # Convert back to list when needed
-    sumList = __native__("Nalgebra.dvecToList", sum)
-    println("Sum: ${sumList}")
+    # Create matrices
+    m1 = nalgebra.mat([[1.0, 2.0], [3.0, 4.0]])
+    m2 = nalgebra.mat([[5.0, 6.0], [7.0, 8.0]])
 
-    # Dynamic matrices
-    m = __native__("Nalgebra.dmatIdentity", 3)
-    det = __native__("Nalgebra.dmatDeterminant", m)
+    # Matrix operator overloading
+    mSum = m1 + m2
+    mProd = m1 * m2  # Matrix multiplication
+
+    # Matrix operations
+    det = nalgebra.matDeterminant(m1)
+    inv = nalgebra.matInverse(m1)
+    identity = nalgebra.matIdentity(3)
+
     println("Determinant: ${det}")
 
     0
@@ -51,65 +65,92 @@ main() = {
 
 ## API Reference
 
-### DVector (Dynamic Vectors)
+### Vec (Dynamic Vectors)
 
+#### Operators
+Vectors support `+`, `-`, `*`, `/` operators directly:
+```nostos
+v1 + v2   # Vector addition
+v1 - v2   # Vector subtraction
+v1 * v2   # Element-wise multiplication
+v1 / v2   # Element-wise division
+```
+
+#### Constructors
 | Function | Description |
 |----------|-------------|
-| `Nalgebra.dvec(list)` | Create vector from list of floats |
-| `Nalgebra.dvecZeros(n)` | Create zero vector of length n |
-| `Nalgebra.dvecOnes(n)` | Create vector of ones of length n |
-| `Nalgebra.dvecAdd(a, b)` | Add two vectors |
-| `Nalgebra.dvecSub(a, b)` | Subtract two vectors |
-| `Nalgebra.dvecScale(v, s)` | Multiply vector by scalar |
-| `Nalgebra.dvecDiv(a, b)` | Element-wise division |
-| `Nalgebra.dvecDot(a, b)` | Dot product |
-| `Nalgebra.dvecNorm(v)` | Euclidean norm (length) |
-| `Nalgebra.dvecNormalize(v)` | Normalize to unit length |
-| `Nalgebra.dvecLen(v)` | Get number of elements |
-| `Nalgebra.dvecGet(v, i)` | Get element at index i |
-| `Nalgebra.dvecSet(v, i, val)` | Set element (returns new vector) |
-| `Nalgebra.dvecMap(a, b)` | Element-wise multiplication |
-| `Nalgebra.dvecSum(v)` | Sum of all elements |
-| `Nalgebra.dvecMin(v)` | Minimum element |
-| `Nalgebra.dvecMax(v)` | Maximum element |
-| `Nalgebra.dvecToList(v)` | Convert to Nostos list |
+| `vec(list)` | Create vector from list of floats |
+| `vecZeros(n)` | Create zero vector of length n |
+| `vecOnes(n)` | Create vector of ones of length n |
 
-### DMatrix (Dynamic Matrices)
-
+#### Operations
 | Function | Description |
 |----------|-------------|
-| `Nalgebra.dmat(rows)` | Create matrix from nested list |
-| `Nalgebra.dmatIdentity(n)` | Create n x n identity matrix |
-| `Nalgebra.dmatZeros(rows, cols)` | Create zero matrix |
-| `Nalgebra.dmatOnes(rows, cols)` | Create matrix of ones |
-| `Nalgebra.dmatFromRows(rows)` | Create from list of row vectors |
-| `Nalgebra.dmatFromCols(cols)` | Create from list of column vectors |
-| `Nalgebra.dmatAdd(a, b)` | Add two matrices |
-| `Nalgebra.dmatSub(a, b)` | Subtract two matrices |
-| `Nalgebra.dmatMul(a, b)` | Matrix multiplication |
-| `Nalgebra.dmatMulVec(m, v)` | Matrix-vector multiplication |
-| `Nalgebra.dmatScale(m, s)` | Multiply matrix by scalar |
-| `Nalgebra.dmatTranspose(m)` | Transpose matrix |
-| `Nalgebra.dmatRows(m)` | Get number of rows |
-| `Nalgebra.dmatCols(m)` | Get number of columns |
-| `Nalgebra.dmatGet(m, row, col)` | Get element |
-| `Nalgebra.dmatSet(m, row, col, val)` | Set element (returns new matrix) |
-| `Nalgebra.dmatGetRow(m, row)` | Get row as vector |
-| `Nalgebra.dmatGetCol(m, col)` | Get column as vector |
-| `Nalgebra.dmatTrace(m)` | Trace (sum of diagonal) |
-| `Nalgebra.dmatDeterminant(m)` | Determinant |
-| `Nalgebra.dmatInverse(m)` | Matrix inverse |
-| `Nalgebra.dmatDiag(v)` | Create diagonal matrix from vector |
-| `Nalgebra.dmatPow(m, n)` | Matrix power |
-| `Nalgebra.dmatToList(m)` | Convert to nested Nostos list |
+| `vecDot(a, b)` | Dot product |
+| `vecNorm(v)` | Euclidean norm (length) |
+| `vecNormalize(v)` | Normalize to unit length |
+| `vecLen(v)` | Get number of elements |
+| `vecGet(v, i)` | Get element at index i |
+| `vecSum(v)` | Sum of all elements |
+| `vecMin(v)` | Minimum element |
+| `vecMax(v)` | Maximum element |
+| `vecScale(v, s)` | Multiply vector by scalar |
+| `vecDistance(a, b)` | Euclidean distance between vectors |
 
-### Utility Functions
+### Mat (Dynamic Matrices)
 
+#### Operators
+Matrices support `+`, `-`, `*`, `/` operators directly:
+```nostos
+m1 + m2   # Matrix addition
+m1 - m2   # Matrix subtraction
+m1 * m2   # Matrix multiplication
+m1 / m2   # m1 * inverse(m2)
+```
+
+#### Constructors
 | Function | Description |
 |----------|-------------|
-| `Nalgebra.allocCount()` | Get total allocations (for debugging) |
-| `Nalgebra.cleanupCount()` | Get total cleanups (for debugging) |
-| `Nalgebra.resetStats()` | Reset allocation counters |
+| `mat(rows)` | Create matrix from nested list |
+| `matIdentity(n)` | Create n x n identity matrix |
+| `matZeros(rows, cols)` | Create zero matrix |
+| `matOnes(rows, cols)` | Create matrix of ones |
+
+#### Operations
+| Function | Description |
+|----------|-------------|
+| `matRows(m)` | Get number of rows |
+| `matCols(m)` | Get number of columns |
+| `matGet(m, row, col)` | Get element |
+| `matTranspose(m)` | Transpose matrix |
+| `matTrace(m)` | Trace (sum of diagonal) |
+| `matDeterminant(m)` | Determinant |
+| `matInverse(m)` | Matrix inverse |
+| `matScale(m, s)` | Multiply matrix by scalar |
+| `matPow(m, n)` | Matrix power |
+| `matMulVec(m, v)` | Matrix-vector multiplication |
+| `matGetRow(m, row)` | Get row as vector |
+| `matGetCol(m, col)` | Get column as vector |
+
+### Raw Native Handle Functions
+
+For lower-level access or when you need direct native handles without the wrapper types, use the `dvec*` and `dmat*` functions:
+
+```nostos
+# Direct native handle API
+v = nalgebra.dvec([1.0, 2.0, 3.0])
+result = nalgebra.dvecAdd(v, nalgebra.dvecOnes(3))
+```
+
+| Vector Functions | Matrix Functions |
+|-----------------|------------------|
+| `dvec`, `dvecZeros`, `dvecOnes` | `dmat`, `dmatIdentity`, `dmatZeros`, `dmatOnes` |
+| `dvecAdd`, `dvecSub`, `dvecScale` | `dmatAdd`, `dmatSub`, `dmatScale` |
+| `dvecDot`, `dvecNorm`, `dvecNormalize` | `dmatMul`, `dmatMulVec`, `dmatTranspose` |
+| `dvecLen`, `dvecGet`, `dvecSet` | `dmatRows`, `dmatCols`, `dmatGet`, `dmatSet` |
+| `dvecComponentMul`, `dvecSum` | `dmatTrace`, `dmatDeterminant`, `dmatInverse` |
+| `dvecMin`, `dvecMax` | `dmatDiag`, `dmatPow`, `dmatFromRows`, `dmatFromCols` |
+| `dvecDistance`, `dvecLerp` | `dmatGetRow`, `dmatGetCol`, `dmatIsSquare`, `dmatShape` |
 
 ## Performance
 
