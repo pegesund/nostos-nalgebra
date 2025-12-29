@@ -20,7 +20,8 @@
 # Vec Type - Dynamic Vector with Operator Overloading
 # =============================================================================
 
-type Vec = { data: List }
+# Native handle wrapper - data stores the native pointer
+type Vec = { data: Any }
 
 trait Num
     add(self, other: Self) -> Self
@@ -36,8 +37,8 @@ Vec: Num
     div(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecDiv", self.data, other.data))
 end
 
-# Vec constructor
-pub vec(data) -> Vec = Vec(data)
+# Vec constructor - creates native handle from list
+pub vec(data) -> Vec = Vec(__native__("Nalgebra.dvec", data))
 
 # Vec factory functions
 pub vecZeros(n) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
@@ -59,7 +60,8 @@ pub vecDistance(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecNorm", __nat
 # Mat Type - Dynamic Matrix with Operator Overloading
 # =============================================================================
 
-type Mat = { data: List }
+# Native handle wrapper - data stores the native pointer
+type Mat = { data: Any }
 
 Mat: Num
     add(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatAdd", self.data, other.data))
@@ -68,8 +70,8 @@ Mat: Num
     div(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatMul", self.data, __native__("Nalgebra.dmatInverse", other.data)))
 end
 
-# Mat constructor
-pub mat(data) -> Mat = Mat(data)
+# Mat constructor - creates native handle from nested list
+pub mat(data) -> Mat = Mat(__native__("Nalgebra.dmat", data))
 
 # Mat factory functions
 pub matIdentity(n: Int) -> Mat = Mat(__native__("Nalgebra.dmatIdentity", n))
