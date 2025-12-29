@@ -1,12 +1,44 @@
 //! nalgebra linear algebra extension for Nostos.
 //!
 //! Provides dynamic vector and matrix operations using the nalgebra library.
-//! Unlike glam (fixed-size Vec2-4), nalgebra supports arbitrary-length vectors.
+//! Uses GC-managed native handles to store data directly, avoiding copies.
 
 use nostos_extension::*;
 use nalgebra::{DVector, DMatrix};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+// Global counters to track allocations and cleanups (for testing)
+static ALLOC_COUNT: AtomicU64 = AtomicU64::new(0);
+static CLEANUP_COUNT: AtomicU64 = AtomicU64::new(0);
 
 declare_extension!("nalgebra", "0.1.0", register);
+
+// Type IDs for native handles
+const TYPE_DVECTOR: u64 = 1;
+const TYPE_DMATRIX: u64 = 2;
+
+// Cleanup function called by GC when a handle is collected
+fn nalgebra_cleanup(ptr: usize, type_id: u64) {
+    CLEANUP_COUNT.fetch_add(1, Ordering::Relaxed);
+    match type_id {
+        TYPE_DVECTOR => {
+            // Reconstruct and drop the Box<DVector<f64>>
+            unsafe {
+                let _ = Box::from_raw(ptr as *mut DVector<f64>);
+            }
+        }
+        TYPE_DMATRIX => {
+            // Reconstruct and drop the Box<DMatrix<f64>>
+            unsafe {
+                let _ = Box::from_raw(ptr as *mut DMatrix<f64>);
+            }
+        }
+        _ => {
+            eprintln!("nalgebra_cleanup: unknown type_id {}", type_id);
+        }
+    }
+}
 
 fn register(reg: &mut ExtRegistry) {
     // DVector operations (dynamic-sized vectors)
@@ -27,6 +59,7 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dvecMin", dvec_min);
     reg.add("Nalgebra.dvecMax", dvec_max);
     reg.add("Nalgebra.dvecDiv", dvec_div);
+    reg.add("Nalgebra.dvecToList", dvec_to_list);
 
     // DMatrix operations (dynamic-sized matrices)
     reg.add("Nalgebra.dmat", dmat_new);
@@ -52,40 +85,72 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dmatInverse", dmat_inverse);
     reg.add("Nalgebra.dmatDiag", dmat_diag);
     reg.add("Nalgebra.dmatPow", dmat_pow);
+    reg.add("Nalgebra.dmatToList", dmat_to_list);
+
+    // Stats functions for GC testing
+    reg.add("Nalgebra.allocCount", stats_alloc_count);
+    reg.add("Nalgebra.cleanupCount", stats_cleanup_count);
+    reg.add("Nalgebra.resetStats", stats_reset);
 }
 
 // ==================== Helper Functions ====================
 
-// Convert DVector to Value (list of floats)
-fn dvec_to_value(v: &DVector<f64>) -> Value {
-    Value::List(std::sync::Arc::new(
-        v.iter().map(|&x| Value::Float(x)).collect()
-    ))
+// Create a GcHandle for a DVector
+fn dvec_handle(v: DVector<f64>) -> Value {
+    ALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
+    Value::gc_handle(Box::new(v), TYPE_DVECTOR, nalgebra_cleanup)
 }
 
-// Convert Value (list) to DVector
-fn value_to_dvec(v: &Value) -> Result<DVector<f64>, String> {
+// Create a GcHandle for a DMatrix
+fn dmat_handle(m: DMatrix<f64>) -> Value {
+    ALLOC_COUNT.fetch_add(1, Ordering::Relaxed);
+    Value::gc_handle(Box::new(m), TYPE_DMATRIX, nalgebra_cleanup)
+}
+
+// Extract DVector from a GcHandle or convert from List (for backward compatibility)
+fn get_dvec(v: &Value) -> Result<&DVector<f64>, String> {
+    match v {
+        Value::GcHandle(h) => {
+            if h.type_id != TYPE_DVECTOR {
+                return Err(format!("Expected DVector handle (type={}), got type={}", TYPE_DVECTOR, h.type_id));
+            }
+            if h.ptr == 0 {
+                return Err("Invalid DVector handle (null pointer)".to_string());
+            }
+            Ok(unsafe { &*(h.ptr as *const DVector<f64>) })
+        }
+        Value::List(_) => {
+            Err("Expected native handle, got List. Use dvec() to create native vectors.".to_string())
+        }
+        _ => Err(format!("Expected DVector handle, got {:?}", v.type_name())),
+    }
+}
+
+// Extract DMatrix from a GcHandle
+fn get_dmat(v: &Value) -> Result<&DMatrix<f64>, String> {
+    match v {
+        Value::GcHandle(h) => {
+            if h.type_id != TYPE_DMATRIX {
+                return Err(format!("Expected DMatrix handle (type={}), got type={}", TYPE_DMATRIX, h.type_id));
+            }
+            if h.ptr == 0 {
+                return Err("Invalid DMatrix handle (null pointer)".to_string());
+            }
+            Ok(unsafe { &*(h.ptr as *const DMatrix<f64>) })
+        }
+        _ => Err(format!("Expected DMatrix handle, got {:?}", v.type_name())),
+    }
+}
+
+// Convert list of floats to DVector
+fn list_to_dvec(v: &Value) -> Result<DVector<f64>, String> {
     let list = v.as_list()?;
     let data: Result<Vec<f64>, _> = list.iter().map(|x| x.as_f64()).collect();
     Ok(DVector::from_vec(data?))
 }
 
-// Convert DMatrix to Value (nested list, row-major for readability)
-fn dmat_to_value(m: &DMatrix<f64>) -> Value {
-    let rows: Vec<Value> = (0..m.nrows())
-        .map(|i| {
-            Value::List(std::sync::Arc::new(
-                (0..m.ncols())
-                    .map(|j| Value::Float(m[(i, j)]))
-                    .collect()
-            ))
-        })
-        .collect();
-    Value::List(std::sync::Arc::new(rows))
-}
-
-// Convert Value (nested list) to DMatrix
-fn value_to_dmat(v: &Value) -> Result<DMatrix<f64>, String> {
+// Convert nested list to DMatrix
+fn list_to_dmat(v: &Value) -> Result<DMatrix<f64>, String> {
     let rows = v.as_list()?;
     if rows.is_empty() {
         return Err("Matrix cannot be empty".to_string());
@@ -106,82 +171,80 @@ fn value_to_dmat(v: &Value) -> Result<DMatrix<f64>, String> {
         }
     }
 
-    // nalgebra uses column-major, so we need to transpose
     Ok(DMatrix::from_row_slice(nrows, ncols, &data))
 }
 
 // ==================== DVector Operations ====================
 
 fn dvec_new(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let list = args[0].as_list()?;
-    let data: Result<Vec<f64>, _> = list.iter().map(|x| x.as_f64()).collect();
-    Ok(dvec_to_value(&DVector::from_vec(data?)))
+    let v = list_to_dvec(&args[0])?;
+    Ok(dvec_handle(v))
 }
 
 fn dvec_zeros(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let n = args[0].as_i64()? as usize;
-    Ok(dvec_to_value(&DVector::zeros(n)))
+    Ok(dvec_handle(DVector::zeros(n)))
 }
 
 fn dvec_ones(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let n = args[0].as_i64()? as usize;
-    Ok(dvec_to_value(&DVector::from_element(n, 1.0)))
+    Ok(dvec_handle(DVector::from_element(n, 1.0)))
 }
 
 fn dvec_add(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dvec(&args[0])?;
-    let b = value_to_dvec(&args[1])?;
+    let a = get_dvec(&args[0])?;
+    let b = get_dvec(&args[1])?;
     if a.len() != b.len() {
         return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
     }
-    Ok(dvec_to_value(&(a + b)))
+    Ok(dvec_handle(a + b))
 }
 
 fn dvec_sub(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dvec(&args[0])?;
-    let b = value_to_dvec(&args[1])?;
+    let a = get_dvec(&args[0])?;
+    let b = get_dvec(&args[1])?;
     if a.len() != b.len() {
         return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
     }
-    Ok(dvec_to_value(&(a - b)))
+    Ok(dvec_handle(a - b))
 }
 
 fn dvec_scale(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     let s = args[1].as_f64()?;
-    Ok(dvec_to_value(&(v * s)))
+    Ok(dvec_handle(v * s))
 }
 
 fn dvec_dot(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dvec(&args[0])?;
-    let b = value_to_dvec(&args[1])?;
+    let a = get_dvec(&args[0])?;
+    let b = get_dvec(&args[1])?;
     if a.len() != b.len() {
         return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
     }
-    Ok(Value::Float(a.dot(&b)))
+    Ok(Value::Float(a.dot(b)))
 }
 
 fn dvec_norm(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     Ok(Value::Float(v.norm()))
 }
 
 fn dvec_normalize(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     let norm = v.norm();
     if norm == 0.0 {
         return Err("Cannot normalize zero vector".to_string());
     }
-    Ok(dvec_to_value(&v.normalize()))
+    Ok(dvec_handle(v.normalize()))
 }
 
 fn dvec_len(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     Ok(Value::Int(v.len() as i64))
 }
 
 fn dvec_get(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     let i = args[1].as_i64()? as usize;
     if i >= v.len() {
         return Err(format!("Index {} out of bounds for vector of length {}", i, v.len()));
@@ -190,32 +253,33 @@ fn dvec_get(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 }
 
 fn dvec_set(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let mut v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     let i = args[1].as_i64()? as usize;
     let val = args[2].as_f64()?;
     if i >= v.len() {
         return Err(format!("Index {} out of bounds for vector of length {}", i, v.len()));
     }
-    v[i] = val;
-    Ok(dvec_to_value(&v))
+    let mut new_v = v.clone();
+    new_v[i] = val;
+    Ok(dvec_handle(new_v))
 }
 
 fn dvec_component_mul(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dvec(&args[0])?;
-    let b = value_to_dvec(&args[1])?;
+    let a = get_dvec(&args[0])?;
+    let b = get_dvec(&args[1])?;
     if a.len() != b.len() {
         return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
     }
-    Ok(dvec_to_value(&a.component_mul(&b)))
+    Ok(dvec_handle(a.component_mul(b)))
 }
 
 fn dvec_sum(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     Ok(Value::Float(v.sum()))
 }
 
 fn dvec_min(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     if v.is_empty() {
         return Err("Cannot find min of empty vector".to_string());
     }
@@ -223,7 +287,7 @@ fn dvec_min(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 }
 
 fn dvec_max(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     if v.is_empty() {
         return Err("Cannot find max of empty vector".to_string());
     }
@@ -231,35 +295,44 @@ fn dvec_max(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 }
 
 fn dvec_div(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dvec(&args[0])?;
-    let b = value_to_dvec(&args[1])?;
+    let a = get_dvec(&args[0])?;
+    let b = get_dvec(&args[1])?;
     if a.len() != b.len() {
         return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
     }
-    Ok(dvec_to_value(&a.component_div(&b)))
+    Ok(dvec_handle(a.component_div(b)))
+}
+
+// Convert native handle back to list (for interop)
+fn dvec_to_list(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let v = get_dvec(&args[0])?;
+    Ok(Value::List(Arc::new(
+        v.iter().map(|&x| Value::Float(x)).collect()
+    )))
 }
 
 // ==================== DMatrix Operations ====================
 
 fn dmat_new(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    value_to_dmat(&args[0]).map(|m| dmat_to_value(&m))
+    let m = list_to_dmat(&args[0])?;
+    Ok(dmat_handle(m))
 }
 
 fn dmat_identity(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let n = args[0].as_i64()? as usize;
-    Ok(dmat_to_value(&DMatrix::identity(n, n)))
+    Ok(dmat_handle(DMatrix::identity(n, n)))
 }
 
 fn dmat_zeros(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let rows = args[0].as_i64()? as usize;
     let cols = args[1].as_i64()? as usize;
-    Ok(dmat_to_value(&DMatrix::zeros(rows, cols)))
+    Ok(dmat_handle(DMatrix::zeros(rows, cols)))
 }
 
 fn dmat_ones(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let rows = args[0].as_i64()? as usize;
     let cols = args[1].as_i64()? as usize;
-    Ok(dmat_to_value(&DMatrix::from_element(rows, cols, 1.0)))
+    Ok(dmat_handle(DMatrix::from_element(rows, cols, 1.0)))
 }
 
 fn dmat_from_rows(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
@@ -270,7 +343,16 @@ fn dmat_from_rows(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 
     let mut rows: Vec<DVector<f64>> = Vec::new();
     for row in rows_list.iter() {
-        rows.push(value_to_dvec(row)?);
+        // Handle both native handles and lists
+        match row {
+            Value::GcHandle(h) if h.type_id == TYPE_DVECTOR => {
+                rows.push(get_dvec(row)?.clone());
+            }
+            Value::List(_) => {
+                rows.push(list_to_dvec(row)?);
+            }
+            _ => return Err("Row must be a vector or list".to_string()),
+        }
     }
 
     let ncols = rows[0].len();
@@ -281,7 +363,7 @@ fn dmat_from_rows(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     }
 
     let m = DMatrix::from_rows(&rows.iter().map(|r| r.transpose()).collect::<Vec<_>>());
-    Ok(dmat_to_value(&m))
+    Ok(dmat_handle(m))
 }
 
 fn dmat_from_cols(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
@@ -292,7 +374,15 @@ fn dmat_from_cols(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 
     let mut cols: Vec<DVector<f64>> = Vec::new();
     for col in cols_list.iter() {
-        cols.push(value_to_dvec(col)?);
+        match col {
+            Value::GcHandle(h) if h.type_id == TYPE_DVECTOR => {
+                cols.push(get_dvec(col)?.clone());
+            }
+            Value::List(_) => {
+                cols.push(list_to_dvec(col)?);
+            }
+            _ => return Err("Column must be a vector or list".to_string()),
+        }
     }
 
     let nrows = cols[0].len();
@@ -303,72 +393,72 @@ fn dmat_from_cols(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     }
 
     let m = DMatrix::from_columns(&cols);
-    Ok(dmat_to_value(&m))
+    Ok(dmat_handle(m))
 }
 
 fn dmat_add(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dmat(&args[0])?;
-    let b = value_to_dmat(&args[1])?;
+    let a = get_dmat(&args[0])?;
+    let b = get_dmat(&args[1])?;
     if a.nrows() != b.nrows() || a.ncols() != b.ncols() {
         return Err(format!("Matrix dimension mismatch: {}x{} vs {}x{}",
             a.nrows(), a.ncols(), b.nrows(), b.ncols()));
     }
-    Ok(dmat_to_value(&(a + b)))
+    Ok(dmat_handle(a + b))
 }
 
 fn dmat_sub(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dmat(&args[0])?;
-    let b = value_to_dmat(&args[1])?;
+    let a = get_dmat(&args[0])?;
+    let b = get_dmat(&args[1])?;
     if a.nrows() != b.nrows() || a.ncols() != b.ncols() {
         return Err(format!("Matrix dimension mismatch: {}x{} vs {}x{}",
             a.nrows(), a.ncols(), b.nrows(), b.ncols()));
     }
-    Ok(dmat_to_value(&(a - b)))
+    Ok(dmat_handle(a - b))
 }
 
 fn dmat_mul(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let a = value_to_dmat(&args[0])?;
-    let b = value_to_dmat(&args[1])?;
+    let a = get_dmat(&args[0])?;
+    let b = get_dmat(&args[1])?;
     if a.ncols() != b.nrows() {
         return Err(format!("Matrix multiplication dimension mismatch: {}x{} * {}x{}",
             a.nrows(), a.ncols(), b.nrows(), b.ncols()));
     }
-    Ok(dmat_to_value(&(a * b)))
+    Ok(dmat_handle(a * b))
 }
 
 fn dmat_mul_vec(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
-    let v = value_to_dvec(&args[1])?;
+    let m = get_dmat(&args[0])?;
+    let v = get_dvec(&args[1])?;
     if m.ncols() != v.len() {
         return Err(format!("Matrix-vector dimension mismatch: {}x{} * {}",
             m.nrows(), m.ncols(), v.len()));
     }
-    Ok(dvec_to_value(&(m * v)))
+    Ok(dvec_handle(m * v))
 }
 
 fn dmat_scale(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let s = args[1].as_f64()?;
-    Ok(dmat_to_value(&(m * s)))
+    Ok(dmat_handle(m * s))
 }
 
 fn dmat_transpose(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
-    Ok(dmat_to_value(&m.transpose()))
+    let m = get_dmat(&args[0])?;
+    Ok(dmat_handle(m.transpose()))
 }
 
 fn dmat_rows(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     Ok(Value::Int(m.nrows() as i64))
 }
 
 fn dmat_cols(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     Ok(Value::Int(m.ncols() as i64))
 }
 
 fn dmat_get(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let row = args[1].as_i64()? as usize;
     let col = args[2].as_i64()? as usize;
     if row >= m.nrows() || col >= m.ncols() {
@@ -379,7 +469,7 @@ fn dmat_get(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 }
 
 fn dmat_set(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let mut m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let row = args[1].as_i64()? as usize;
     let col = args[2].as_i64()? as usize;
     let val = args[3].as_f64()?;
@@ -387,32 +477,33 @@ fn dmat_set(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
         return Err(format!("Index ({}, {}) out of bounds for {}x{} matrix",
             row, col, m.nrows(), m.ncols()));
     }
-    m[(row, col)] = val;
-    Ok(dmat_to_value(&m))
+    let mut new_m = m.clone();
+    new_m[(row, col)] = val;
+    Ok(dmat_handle(new_m))
 }
 
 fn dmat_get_row(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let row = args[1].as_i64()? as usize;
     if row >= m.nrows() {
         return Err(format!("Row {} out of bounds for {}x{} matrix", row, m.nrows(), m.ncols()));
     }
     let row_vec: DVector<f64> = m.row(row).transpose();
-    Ok(dvec_to_value(&row_vec))
+    Ok(dvec_handle(row_vec))
 }
 
 fn dmat_get_col(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let col = args[1].as_i64()? as usize;
     if col >= m.ncols() {
         return Err(format!("Column {} out of bounds for {}x{} matrix", col, m.nrows(), m.ncols()));
     }
     let col_vec: DVector<f64> = m.column(col).into();
-    Ok(dvec_to_value(&col_vec))
+    Ok(dvec_handle(col_vec))
 }
 
 fn dmat_trace(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     if m.nrows() != m.ncols() {
         return Err("Trace is only defined for square matrices".to_string());
     }
@@ -420,7 +511,7 @@ fn dmat_trace(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
 }
 
 fn dmat_determinant(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     if m.nrows() != m.ncols() {
         return Err("Determinant is only defined for square matrices".to_string());
     }
@@ -428,28 +519,28 @@ fn dmat_determinant(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> 
 }
 
 fn dmat_inverse(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     if m.nrows() != m.ncols() {
         return Err("Inverse is only defined for square matrices".to_string());
     }
-    match m.try_inverse() {
-        Some(inv) => Ok(dmat_to_value(&inv)),
+    match m.clone().try_inverse() {
+        Some(inv) => Ok(dmat_handle(inv)),
         None => Err("Matrix is singular (not invertible)".to_string()),
     }
 }
 
 fn dmat_diag(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let v = value_to_dvec(&args[0])?;
+    let v = get_dvec(&args[0])?;
     let n = v.len();
     let mut m = DMatrix::zeros(n, n);
     for i in 0..n {
         m[(i, i)] = v[i];
     }
-    Ok(dmat_to_value(&m))
+    Ok(dmat_handle(m))
 }
 
 fn dmat_pow(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
-    let m = value_to_dmat(&args[0])?;
+    let m = get_dmat(&args[0])?;
     let n = args[1].as_i64()?;
     if m.nrows() != m.ncols() {
         return Err("Matrix power is only defined for square matrices".to_string());
@@ -458,13 +549,44 @@ fn dmat_pow(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
         return Err("Negative matrix powers not supported".to_string());
     }
     if n == 0 {
-        return Ok(dmat_to_value(&DMatrix::identity(m.nrows(), m.ncols())));
+        return Ok(dmat_handle(DMatrix::identity(m.nrows(), m.ncols())));
     }
     let mut result = m.clone();
     for _ in 1..n {
-        result = &result * &m;
+        result = &result * m;
     }
-    Ok(dmat_to_value(&result))
+    Ok(dmat_handle(result))
+}
+
+// Convert native handle back to nested list (for interop)
+fn dmat_to_list(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let m = get_dmat(&args[0])?;
+    let rows: Vec<Value> = (0..m.nrows())
+        .map(|i| {
+            Value::List(Arc::new(
+                (0..m.ncols())
+                    .map(|j| Value::Float(m[(i, j)]))
+                    .collect()
+            ))
+        })
+        .collect();
+    Ok(Value::List(Arc::new(rows)))
+}
+
+// ==================== Stats Functions (for GC testing) ====================
+
+fn stats_alloc_count(_args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    Ok(Value::Int(ALLOC_COUNT.load(Ordering::Relaxed) as i64))
+}
+
+fn stats_cleanup_count(_args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    Ok(Value::Int(CLEANUP_COUNT.load(Ordering::Relaxed) as i64))
+}
+
+fn stats_reset(_args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    ALLOC_COUNT.store(0, Ordering::Relaxed);
+    CLEANUP_COUNT.store(0, Ordering::Relaxed);
+    Ok(Value::Unit)
 }
 
 #[cfg(test)]
@@ -481,11 +603,14 @@ mod tests {
     fn test_dvec_operations() {
         let ctx = make_ctx();
 
-        // Create a vector
-        let v = dvec_new(&[Value::List(std::sync::Arc::new(vec![
+        // Create a vector from list
+        let v = dvec_new(&[Value::List(Arc::new(vec![
             Value::Float(1.0), Value::Float(2.0), Value::Float(3.0),
             Value::Float(4.0), Value::Float(5.0)
         ]))], &ctx).unwrap();
+
+        // Verify it's a GcHandle
+        assert!(matches!(v, Value::GcHandle(_)));
 
         // Check length
         let len = dvec_len(&[v.clone()], &ctx).unwrap();
@@ -499,6 +624,18 @@ mod tests {
         // Check sum
         let sum = dvec_sum(&[v.clone()], &ctx).unwrap();
         assert_eq!(sum.as_f64().unwrap(), 15.0);
+
+        // Add vectors
+        let v2 = dvec_new(&[Value::List(Arc::new(vec![
+            Value::Float(5.0), Value::Float(4.0), Value::Float(3.0),
+            Value::Float(2.0), Value::Float(1.0)
+        ]))], &ctx).unwrap();
+
+        let sum_vec = dvec_add(&[v.clone(), v2.clone()], &ctx).unwrap();
+        let sum_list = dvec_to_list(&[sum_vec], &ctx).unwrap();
+        let sum_list = sum_list.as_list().unwrap();
+        assert_eq!(sum_list.len(), 5);
+        assert_eq!(sum_list[0].as_f64().unwrap(), 6.0);
     }
 
     #[test]
@@ -507,6 +644,9 @@ mod tests {
 
         // Create 2x2 identity
         let identity = dmat_identity(&[Value::Int(2)], &ctx).unwrap();
+
+        // Verify it's a GcHandle
+        assert!(matches!(identity, Value::GcHandle(_)));
 
         // Check dimensions
         let rows = dmat_rows(&[identity.clone()], &ctx).unwrap();
