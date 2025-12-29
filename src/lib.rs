@@ -26,6 +26,7 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dvecSum", dvec_sum);
     reg.add("Nalgebra.dvecMin", dvec_min);
     reg.add("Nalgebra.dvecMax", dvec_max);
+    reg.add("Nalgebra.dvecDiv", dvec_div);
 
     // DMatrix operations (dynamic-sized matrices)
     reg.add("Nalgebra.dmat", dmat_new);
@@ -227,6 +228,15 @@ fn dvec_max(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
         return Err("Cannot find max of empty vector".to_string());
     }
     Ok(Value::Float(v.max()))
+}
+
+fn dvec_div(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let a = value_to_dvec(&args[0])?;
+    let b = value_to_dvec(&args[1])?;
+    if a.len() != b.len() {
+        return Err(format!("Vector length mismatch: {} vs {}", a.len(), b.len()));
+    }
+    Ok(dvec_to_value(&a.component_div(&b)))
 }
 
 // ==================== DMatrix Operations ====================

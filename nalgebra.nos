@@ -7,12 +7,80 @@
 # Usage:
 #   import nalgebra
 #
-#   v1 = nalgebra.dvec([1.0, 2.0, 3.0, 4.0, 5.0])
-#   v2 = nalgebra.dvec([5.0, 4.0, 3.0, 2.0, 1.0])
-#   sum = nalgebra.dvecAdd(v1, v2)
+#   v1 = nalgebra.Vec([1.0, 2.0, 3.0, 4.0, 5.0])
+#   v2 = nalgebra.Vec([5.0, 4.0, 3.0, 2.0, 1.0])
+#   sum = v1 + v2    # Operator overloading!
+#   diff = v1 - v2
+#   scaled = v1 * 2.0
 #
-#   m = nalgebra.dmatIdentity(3)
-#   det = nalgebra.dmatDeterminant(m)
+#   m = nalgebra.Mat.identity(3)
+#   det = m.determinant()
+
+# =============================================================================
+# Vec Type - Dynamic Vector with Operator Overloading
+# =============================================================================
+
+pub type Vec = { data: List Float }
+
+trait Num
+    add(self, other: Self) -> Self
+    sub(self, other: Self) -> Self
+    mul(self, other: Self) -> Self
+    div(self, other: Self) -> Self
+end
+
+Vec: Num
+    add(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecAdd", self.data, other.data))
+    sub(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecSub", self.data, other.data))
+    mul(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecMap", self.data, other.data))
+    div(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecDiv", self.data, other.data))
+end
+
+# Vec methods
+pub Vec.zeros(n) = Vec(__native__("Nalgebra.dvecZeros", n))
+pub Vec.ones(n) = Vec(__native__("Nalgebra.dvecOnes", n))
+pub Vec.dot(self, other: Vec) -> Float = __native__("Nalgebra.dvecDot", self.data, other.data)
+pub Vec.norm(self) -> Float = __native__("Nalgebra.dvecNorm", self.data)
+pub Vec.normalize(self) -> Vec = Vec(__native__("Nalgebra.dvecNormalize", self.data))
+pub Vec.len(self) -> Int = __native__("Nalgebra.dvecLen", self.data)
+pub Vec.get(self, i: Int) -> Float = __native__("Nalgebra.dvecGet", self.data, i)
+pub Vec.sum(self) -> Float = __native__("Nalgebra.dvecSum", self.data)
+pub Vec.min(self) -> Float = __native__("Nalgebra.dvecMin", self.data)
+pub Vec.max(self) -> Float = __native__("Nalgebra.dvecMax", self.data)
+pub Vec.scale(self, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", self.data, s))
+pub Vec.distance(self, other: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", other.data, self.data))
+
+# =============================================================================
+# Mat Type - Dynamic Matrix with Operator Overloading
+# =============================================================================
+
+pub type Mat = { data: List (List Float) }
+
+Mat: Num
+    add(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatAdd", self.data, other.data))
+    sub(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatSub", self.data, other.data))
+    mul(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatMul", self.data, other.data))
+    div(self, other: Mat) -> Mat = self * other.inverse()
+end
+
+# Mat constructors
+pub Mat.identity(n) = Mat(__native__("Nalgebra.dmatIdentity", n))
+pub Mat.zeros(rows, cols) = Mat(__native__("Nalgebra.dmatZeros", rows, cols))
+pub Mat.ones(rows, cols) = Mat(__native__("Nalgebra.dmatOnes", rows, cols))
+
+# Mat methods
+pub Mat.rows(self) -> Int = __native__("Nalgebra.dmatRows", self.data)
+pub Mat.cols(self) -> Int = __native__("Nalgebra.dmatCols", self.data)
+pub Mat.get(self, row: Int, col: Int) -> Float = __native__("Nalgebra.dmatGet", self.data, row, col)
+pub Mat.transpose(self) -> Mat = Mat(__native__("Nalgebra.dmatTranspose", self.data))
+pub Mat.trace(self) -> Float = __native__("Nalgebra.dmatTrace", self.data)
+pub Mat.determinant(self) -> Float = __native__("Nalgebra.dmatDeterminant", self.data)
+pub Mat.inverse(self) -> Mat = Mat(__native__("Nalgebra.dmatInverse", self.data))
+pub Mat.scale(self, s: Float) -> Mat = Mat(__native__("Nalgebra.dmatScale", self.data, s))
+pub Mat.pow(self, n: Int) -> Mat = Mat(__native__("Nalgebra.dmatPow", self.data, n))
+pub Mat.mulVec(self, v: Vec) -> Vec = Vec(__native__("Nalgebra.dmatMulVec", self.data, v.data))
+pub Mat.getRow(self, row: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetRow", self.data, row))
+pub Mat.getCol(self, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", self.data, col))
 
 # =============================================================================
 # DVector - Dynamic-Sized Vector Operations
