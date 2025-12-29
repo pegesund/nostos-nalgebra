@@ -1,8 +1,7 @@
 # Nalgebra - Dynamic Linear Algebra Library for Nostos
 #
 # This module provides dynamic-sized vector and matrix operations
-# using the native nalgebra extension. Unlike glam (fixed Vec2-4),
-# nalgebra supports arbitrary-length vectors and matrices.
+# using the native nalgebra extension.
 #
 # Usage:
 #   import nalgebra
