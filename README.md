@@ -27,11 +27,11 @@ nalgebra = { git = "https://github.com/pegesund/nostos-nalgebra" }
 import nalgebra
 
 main() = {
-    # Create vectors with the vec() constructor
+    # Create vectors
     v1 = nalgebra.vec([1.0, 2.0, 3.0, 4.0, 5.0])
     v2 = nalgebra.vec([5.0, 4.0, 3.0, 2.0, 1.0])
 
-    # Operator overloading!
+    # Operator overloading
     sum = v1 + v2
     diff = v1 - v2
     prod = v1 * v2  # Element-wise multiplication
@@ -59,6 +59,9 @@ main() = {
 
     println("Determinant: ${det}")
 
+    # Convert back to lists when needed
+    listData = nalgebra.vecToList(v1)
+
     0
 }
 ```
@@ -68,7 +71,6 @@ main() = {
 ### Vec (Dynamic Vectors)
 
 #### Operators
-Vectors support `+`, `-`, `*`, `/` operators directly:
 ```nostos
 v1 + v2   # Vector addition
 v1 - v2   # Vector subtraction
@@ -91,16 +93,18 @@ v1 / v2   # Element-wise division
 | `vecNormalize(v)` | Normalize to unit length |
 | `vecLen(v)` | Get number of elements |
 | `vecGet(v, i)` | Get element at index i |
+| `vecSet(v, i, val)` | Set element (returns new vector) |
 | `vecSum(v)` | Sum of all elements |
 | `vecMin(v)` | Minimum element |
 | `vecMax(v)` | Maximum element |
 | `vecScale(v, s)` | Multiply vector by scalar |
 | `vecDistance(a, b)` | Euclidean distance between vectors |
+| `vecLerp(a, b, t)` | Linear interpolation |
+| `vecToList(v)` | Convert to Nostos list |
 
 ### Mat (Dynamic Matrices)
 
 #### Operators
-Matrices support `+`, `-`, `*`, `/` operators directly:
 ```nostos
 m1 + m2   # Matrix addition
 m1 - m2   # Matrix subtraction
@@ -115,13 +119,19 @@ m1 / m2   # m1 * inverse(m2)
 | `matIdentity(n)` | Create n x n identity matrix |
 | `matZeros(rows, cols)` | Create zero matrix |
 | `matOnes(rows, cols)` | Create matrix of ones |
+| `matFromRows(rows)` | Create from list of row vectors |
+| `matFromCols(cols)` | Create from list of column vectors |
+| `matDiag(v)` | Create diagonal matrix from vector |
 
 #### Operations
 | Function | Description |
 |----------|-------------|
 | `matRows(m)` | Get number of rows |
 | `matCols(m)` | Get number of columns |
+| `matShape(m)` | Get (rows, cols) tuple |
+| `matIsSquare(m)` | Check if matrix is square |
 | `matGet(m, row, col)` | Get element |
+| `matSet(m, row, col, val)` | Set element (returns new matrix) |
 | `matTranspose(m)` | Transpose matrix |
 | `matTrace(m)` | Trace (sum of diagonal) |
 | `matDeterminant(m)` | Determinant |
@@ -131,26 +141,7 @@ m1 / m2   # m1 * inverse(m2)
 | `matMulVec(m, v)` | Matrix-vector multiplication |
 | `matGetRow(m, row)` | Get row as vector |
 | `matGetCol(m, col)` | Get column as vector |
-
-### Raw Native Handle Functions
-
-For lower-level access or when you need direct native handles without the wrapper types, use the `dvec*` and `dmat*` functions:
-
-```nostos
-# Direct native handle API
-v = nalgebra.dvec([1.0, 2.0, 3.0])
-result = nalgebra.dvecAdd(v, nalgebra.dvecOnes(3))
-```
-
-| Vector Functions | Matrix Functions |
-|-----------------|------------------|
-| `dvec`, `dvecZeros`, `dvecOnes` | `dmat`, `dmatIdentity`, `dmatZeros`, `dmatOnes` |
-| `dvecAdd`, `dvecSub`, `dvecScale` | `dmatAdd`, `dmatSub`, `dmatScale` |
-| `dvecDot`, `dvecNorm`, `dvecNormalize` | `dmatMul`, `dmatMulVec`, `dmatTranspose` |
-| `dvecLen`, `dvecGet`, `dvecSet` | `dmatRows`, `dmatCols`, `dmatGet`, `dmatSet` |
-| `dvecComponentMul`, `dvecSum` | `dmatTrace`, `dmatDeterminant`, `dmatInverse` |
-| `dvecMin`, `dvecMax` | `dmatDiag`, `dmatPow`, `dmatFromRows`, `dmatFromCols` |
-| `dvecDistance`, `dvecLerp` | `dmatGetRow`, `dmatGetCol`, `dmatIsSquare`, `dmatShape` |
+| `matToList(m)` | Convert to nested Nostos list |
 
 ## Performance
 

@@ -21,7 +21,7 @@
 # =============================================================================
 
 # Native handle wrapper - data stores the native pointer
-type Vec = { data: Any }
+pub type Vec = { data: Any }
 
 trait Num
     add(self, other: Self) -> Self
@@ -38,30 +38,33 @@ Vec: Num
 end
 
 # Vec constructor - creates native handle from list
-pub vec(data) -> Vec = Vec(__native__("Nalgebra.dvec", data))
+pub vec(data: List) -> Vec = Vec(__native__("Nalgebra.dvec", data))
 
 # Vec factory functions
-pub vecZeros(n) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
-pub vecOnes(n) -> Vec = Vec(__native__("Nalgebra.dvecOnes", n))
+pub vecZeros(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
+pub vecOnes(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecOnes", n))
 
-# Vec operations (take Vec, return result)
+# Vec operations
 pub vecDot(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecDot", a.data, b.data)
 pub vecNorm(v: Vec) -> Float = __native__("Nalgebra.dvecNorm", v.data)
 pub vecNormalize(v: Vec) -> Vec = Vec(__native__("Nalgebra.dvecNormalize", v.data))
 pub vecLen(v: Vec) -> Int = __native__("Nalgebra.dvecLen", v.data)
 pub vecGet(v: Vec, i: Int) -> Float = __native__("Nalgebra.dvecGet", v.data, i)
+pub vecSet(v: Vec, i: Int, val: Float) -> Vec = Vec(__native__("Nalgebra.dvecSet", v.data, i, val))
 pub vecSum(v: Vec) -> Float = __native__("Nalgebra.dvecSum", v.data)
 pub vecMin(v: Vec) -> Float = __native__("Nalgebra.dvecMin", v.data)
 pub vecMax(v: Vec) -> Float = __native__("Nalgebra.dvecMax", v.data)
 pub vecScale(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", v.data, s))
 pub vecDistance(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", b.data, a.data))
+pub vecLerp(a: Vec, b: Vec, t: Float) -> Vec = a + vecScale(b - a, t)
+pub vecToList(v: Vec) -> List = __native__("Nalgebra.dvecToList", v.data)
 
 # =============================================================================
 # Mat Type - Dynamic Matrix with Operator Overloading
 # =============================================================================
 
 # Native handle wrapper - data stores the native pointer
-type Mat = { data: Any }
+pub type Mat = { data: Any }
 
 Mat: Num
     add(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatAdd", self.data, other.data))
@@ -71,17 +74,21 @@ Mat: Num
 end
 
 # Mat constructor - creates native handle from nested list
-pub mat(data) -> Mat = Mat(__native__("Nalgebra.dmat", data))
+pub mat(data: List) -> Mat = Mat(__native__("Nalgebra.dmat", data))
 
 # Mat factory functions
 pub matIdentity(n: Int) -> Mat = Mat(__native__("Nalgebra.dmatIdentity", n))
 pub matZeros(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatZeros", rows, cols))
 pub matOnes(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatOnes", rows, cols))
+pub matFromRows(rows: List) -> Mat = Mat(__native__("Nalgebra.dmatFromRows", rows))
+pub matFromCols(cols: List) -> Mat = Mat(__native__("Nalgebra.dmatFromCols", cols))
+pub matDiag(v: Vec) -> Mat = Mat(__native__("Nalgebra.dmatDiag", v.data))
 
 # Mat operations
 pub matRows(m: Mat) -> Int = __native__("Nalgebra.dmatRows", m.data)
 pub matCols(m: Mat) -> Int = __native__("Nalgebra.dmatCols", m.data)
 pub matGet(m: Mat, row: Int, col: Int) -> Float = __native__("Nalgebra.dmatGet", m.data, row, col)
+pub matSet(m: Mat, row: Int, col: Int, val: Float) -> Mat = Mat(__native__("Nalgebra.dmatSet", m.data, row, col, val))
 pub matTranspose(m: Mat) -> Mat = Mat(__native__("Nalgebra.dmatTranspose", m.data))
 pub matTrace(m: Mat) -> Float = __native__("Nalgebra.dmatTrace", m.data)
 pub matDeterminant(m: Mat) -> Float = __native__("Nalgebra.dmatDeterminant", m.data)
@@ -91,54 +98,6 @@ pub matPow(m: Mat, n: Int) -> Mat = Mat(__native__("Nalgebra.dmatPow", m.data, n
 pub matMulVec(m: Mat, v: Vec) -> Vec = Vec(__native__("Nalgebra.dmatMulVec", m.data, v.data))
 pub matGetRow(m: Mat, row: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetRow", m.data, row))
 pub matGetCol(m: Mat, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", m.data, col))
-
-# =============================================================================
-# Raw List Functions (legacy API - works with plain lists)
-# =============================================================================
-
-# DVector operations
-pub dvec(list) = __native__("Nalgebra.dvec", list)
-pub dvecZeros(n) = __native__("Nalgebra.dvecZeros", n)
-pub dvecOnes(n) = __native__("Nalgebra.dvecOnes", n)
-pub dvecAdd(a, b) = __native__("Nalgebra.dvecAdd", a, b)
-pub dvecSub(a, b) = __native__("Nalgebra.dvecSub", a, b)
-pub dvecScale(v, s) = __native__("Nalgebra.dvecScale", v, s)
-pub dvecDot(a, b) = __native__("Nalgebra.dvecDot", a, b)
-pub dvecNorm(v) = __native__("Nalgebra.dvecNorm", v)
-pub dvecNormalize(v) = __native__("Nalgebra.dvecNormalize", v)
-pub dvecLen(v) = __native__("Nalgebra.dvecLen", v)
-pub dvecGet(v, i) = __native__("Nalgebra.dvecGet", v, i)
-pub dvecSet(v, i, val) = __native__("Nalgebra.dvecSet", v, i, val)
-pub dvecComponentMul(a, b) = __native__("Nalgebra.dvecMap", a, b)
-pub dvecSum(v) = __native__("Nalgebra.dvecSum", v)
-pub dvecMin(v) = __native__("Nalgebra.dvecMin", v)
-pub dvecMax(v) = __native__("Nalgebra.dvecMax", v)
-pub dvecDistance(a, b) = dvecNorm(dvecSub(b, a))
-pub dvecLerp(a, b, t) = dvecAdd(a, dvecScale(dvecSub(b, a), t))
-
-# DMatrix operations
-pub dmat(rows) = __native__("Nalgebra.dmat", rows)
-pub dmatIdentity(n) = __native__("Nalgebra.dmatIdentity", n)
-pub dmatZeros(rows, cols) = __native__("Nalgebra.dmatZeros", rows, cols)
-pub dmatOnes(rows, cols) = __native__("Nalgebra.dmatOnes", rows, cols)
-pub dmatFromRows(rows) = __native__("Nalgebra.dmatFromRows", rows)
-pub dmatFromCols(cols) = __native__("Nalgebra.dmatFromCols", cols)
-pub dmatAdd(a, b) = __native__("Nalgebra.dmatAdd", a, b)
-pub dmatSub(a, b) = __native__("Nalgebra.dmatSub", a, b)
-pub dmatMul(a, b) = __native__("Nalgebra.dmatMul", a, b)
-pub dmatMulVec(m, v) = __native__("Nalgebra.dmatMulVec", m, v)
-pub dmatScale(m, s) = __native__("Nalgebra.dmatScale", m, s)
-pub dmatTranspose(m) = __native__("Nalgebra.dmatTranspose", m)
-pub dmatRows(m) = __native__("Nalgebra.dmatRows", m)
-pub dmatCols(m) = __native__("Nalgebra.dmatCols", m)
-pub dmatGet(m, row, col) = __native__("Nalgebra.dmatGet", m, row, col)
-pub dmatSet(m, row, col, val) = __native__("Nalgebra.dmatSet", m, row, col, val)
-pub dmatGetRow(m, row) = __native__("Nalgebra.dmatGetRow", m, row)
-pub dmatGetCol(m, col) = __native__("Nalgebra.dmatGetCol", m, col)
-pub dmatTrace(m) = __native__("Nalgebra.dmatTrace", m)
-pub dmatDeterminant(m) = __native__("Nalgebra.dmatDeterminant", m)
-pub dmatInverse(m) = __native__("Nalgebra.dmatInverse", m)
-pub dmatDiag(v) = __native__("Nalgebra.dmatDiag", v)
-pub dmatPow(m, n) = __native__("Nalgebra.dmatPow", m, n)
-pub dmatIsSquare(m) = dmatRows(m) == dmatCols(m)
-pub dmatShape(m) = (dmatRows(m), dmatCols(m))
+pub matIsSquare(m: Mat) -> Bool = matRows(m) == matCols(m)
+pub matShape(m: Mat) -> (Int, Int) = (matRows(m), matCols(m))
+pub matToList(m: Mat) -> List = __native__("Nalgebra.dmatToList", m.data)
