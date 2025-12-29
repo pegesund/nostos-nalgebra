@@ -1,0 +1,14 @@
+[package]
+name = "nostos-nalgebra"
+version = "0.1.0"
+edition = "2021"
+description = "nalgebra linear algebra extension for Nostos - supports dynamic vectors and matrices"
+repository = "https://github.com/pegesund/nostos-nalgebra"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nostos-extension = { git = "https://github.com/pegesund/nostos", branch = "master" }
+nalgebra = "0.33"
