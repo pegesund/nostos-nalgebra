@@ -49,6 +49,8 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dmatTrace", dmat_trace);
     reg.add("Nalgebra.dmatDeterminant", dmat_determinant);
     reg.add("Nalgebra.dmatInverse", dmat_inverse);
+    reg.add("Nalgebra.dmatDiag", dmat_diag);
+    reg.add("Nalgebra.dmatPow", dmat_pow);
 }
 
 // ==================== Helper Functions ====================
@@ -424,6 +426,35 @@ fn dmat_inverse(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
         Some(inv) => Ok(dmat_to_value(&inv)),
         None => Err("Matrix is singular (not invertible)".to_string()),
     }
+}
+
+fn dmat_diag(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let v = value_to_dvec(&args[0])?;
+    let n = v.len();
+    let mut m = DMatrix::zeros(n, n);
+    for i in 0..n {
+        m[(i, i)] = v[i];
+    }
+    Ok(dmat_to_value(&m))
+}
+
+fn dmat_pow(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let m = value_to_dmat(&args[0])?;
+    let n = args[1].as_i64()?;
+    if m.nrows() != m.ncols() {
+        return Err("Matrix power is only defined for square matrices".to_string());
+    }
+    if n < 0 {
+        return Err("Negative matrix powers not supported".to_string());
+    }
+    if n == 0 {
+        return Ok(dmat_to_value(&DMatrix::identity(m.nrows(), m.ncols())));
+    }
+    let mut result = m.clone();
+    for _ in 1..n {
+        result = &result * &m;
+    }
+    Ok(dmat_to_value(&result))
 }
 
 #[cfg(test)]

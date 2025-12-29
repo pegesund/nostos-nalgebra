@@ -146,23 +146,11 @@ pub dvecDistance(a, b) = dvecNorm(dvecSub(b, a))
 pub dvecLerp(a, b, t) = dvecAdd(a, dvecScale(dvecSub(b, a), t))
 
 # Create a diagonal matrix from a vector
-pub dmatDiag(v) = {
-    n = dvecLen(v)
-    m = dmatZeros(n, n)
-    # Set diagonal elements
-    setDiag(mat, i) = {
-        if i >= n then mat
-        else setDiag(dmatSet(mat, i, i, dvecGet(v, i)), i + 1)
-    }
-    setDiag(m, 0)
-}
+# Note: Use __native__ call directly for complex iteration
+pub dmatDiag(v) = __native__("Nalgebra.dmatDiag", v)
 
 # Matrix power (positive integer only)
-pub dmatPow(m, n) = {
-    if n == 0 then dmatIdentity(dmatRows(m))
-    else if n == 1 then m
-    else dmatMul(m, dmatPow(m, n - 1))
-}
+pub dmatPow(m, n) = __native__("Nalgebra.dmatPow", m, n)
 
 # Check if matrix is square
 pub dmatIsSquare(m) = dmatRows(m) == dmatCols(m)
