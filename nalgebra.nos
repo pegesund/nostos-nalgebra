@@ -7,20 +7,21 @@
 # Usage:
 #   import nalgebra
 #
-#   v1 = nalgebra.Vec([1.0, 2.0, 3.0, 4.0, 5.0])
-#   v2 = nalgebra.Vec([5.0, 4.0, 3.0, 2.0, 1.0])
+#   v1 = nalgebra.vec([1.0, 2.0, 3.0, 4.0, 5.0])
+#   v2 = nalgebra.vec([5.0, 4.0, 3.0, 2.0, 1.0])
 #   sum = v1 + v2    # Operator overloading!
 #   diff = v1 - v2
-#   scaled = v1 * 2.0
+#   prod = v1 * v2   # Component-wise multiplication
 #
-#   m = nalgebra.Mat.identity(3)
-#   det = m.determinant()
+#   m1 = nalgebra.mat([[1.0, 2.0], [3.0, 4.0]])
+#   m2 = nalgebra.mat([[5.0, 6.0], [7.0, 8.0]])
+#   product = m1 * m2  # Matrix multiplication
 
 # =============================================================================
 # Vec Type - Dynamic Vector with Operator Overloading
 # =============================================================================
 
-pub type Vec = { data: List Float }
+type Vec = { data: List }
 
 trait Num
     add(self, other: Self) -> Self
@@ -36,192 +37,107 @@ Vec: Num
     div(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecDiv", self.data, other.data))
 end
 
-# Vec methods
-pub Vec.zeros(n) = Vec(__native__("Nalgebra.dvecZeros", n))
-pub Vec.ones(n) = Vec(__native__("Nalgebra.dvecOnes", n))
-pub Vec.dot(self, other: Vec) -> Float = __native__("Nalgebra.dvecDot", self.data, other.data)
-pub Vec.norm(self) -> Float = __native__("Nalgebra.dvecNorm", self.data)
-pub Vec.normalize(self) -> Vec = Vec(__native__("Nalgebra.dvecNormalize", self.data))
-pub Vec.len(self) -> Int = __native__("Nalgebra.dvecLen", self.data)
-pub Vec.get(self, i: Int) -> Float = __native__("Nalgebra.dvecGet", self.data, i)
-pub Vec.sum(self) -> Float = __native__("Nalgebra.dvecSum", self.data)
-pub Vec.min(self) -> Float = __native__("Nalgebra.dvecMin", self.data)
-pub Vec.max(self) -> Float = __native__("Nalgebra.dvecMax", self.data)
-pub Vec.scale(self, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", self.data, s))
-pub Vec.distance(self, other: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", other.data, self.data))
+# Vec constructor
+pub vec(data) -> Vec = Vec(data)
+
+# Vec factory functions
+pub vecZeros(n) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
+pub vecOnes(n) -> Vec = Vec(__native__("Nalgebra.dvecOnes", n))
+
+# Vec operations (take Vec, return result)
+pub vecDot(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecDot", a.data, b.data)
+pub vecNorm(v: Vec) -> Float = __native__("Nalgebra.dvecNorm", v.data)
+pub vecNormalize(v: Vec) -> Vec = Vec(__native__("Nalgebra.dvecNormalize", v.data))
+pub vecLen(v: Vec) -> Int = __native__("Nalgebra.dvecLen", v.data)
+pub vecGet(v: Vec, i: Int) -> Float = __native__("Nalgebra.dvecGet", v.data, i)
+pub vecSum(v: Vec) -> Float = __native__("Nalgebra.dvecSum", v.data)
+pub vecMin(v: Vec) -> Float = __native__("Nalgebra.dvecMin", v.data)
+pub vecMax(v: Vec) -> Float = __native__("Nalgebra.dvecMax", v.data)
+pub vecScale(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", v.data, s))
+pub vecDistance(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", b.data, a.data))
 
 # =============================================================================
 # Mat Type - Dynamic Matrix with Operator Overloading
 # =============================================================================
 
-pub type Mat = { data: List (List Float) }
+type Mat = { data: List }
 
 Mat: Num
     add(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatAdd", self.data, other.data))
     sub(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatSub", self.data, other.data))
     mul(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatMul", self.data, other.data))
-    div(self, other: Mat) -> Mat = self * other.inverse()
+    div(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatMul", self.data, __native__("Nalgebra.dmatInverse", other.data)))
 end
 
-# Mat constructors
-pub Mat.identity(n) = Mat(__native__("Nalgebra.dmatIdentity", n))
-pub Mat.zeros(rows, cols) = Mat(__native__("Nalgebra.dmatZeros", rows, cols))
-pub Mat.ones(rows, cols) = Mat(__native__("Nalgebra.dmatOnes", rows, cols))
+# Mat constructor
+pub mat(data) -> Mat = Mat(data)
 
-# Mat methods
-pub Mat.rows(self) -> Int = __native__("Nalgebra.dmatRows", self.data)
-pub Mat.cols(self) -> Int = __native__("Nalgebra.dmatCols", self.data)
-pub Mat.get(self, row: Int, col: Int) -> Float = __native__("Nalgebra.dmatGet", self.data, row, col)
-pub Mat.transpose(self) -> Mat = Mat(__native__("Nalgebra.dmatTranspose", self.data))
-pub Mat.trace(self) -> Float = __native__("Nalgebra.dmatTrace", self.data)
-pub Mat.determinant(self) -> Float = __native__("Nalgebra.dmatDeterminant", self.data)
-pub Mat.inverse(self) -> Mat = Mat(__native__("Nalgebra.dmatInverse", self.data))
-pub Mat.scale(self, s: Float) -> Mat = Mat(__native__("Nalgebra.dmatScale", self.data, s))
-pub Mat.pow(self, n: Int) -> Mat = Mat(__native__("Nalgebra.dmatPow", self.data, n))
-pub Mat.mulVec(self, v: Vec) -> Vec = Vec(__native__("Nalgebra.dmatMulVec", self.data, v.data))
-pub Mat.getRow(self, row: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetRow", self.data, row))
-pub Mat.getCol(self, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", self.data, col))
+# Mat factory functions
+pub matIdentity(n: Int) -> Mat = Mat(__native__("Nalgebra.dmatIdentity", n))
+pub matZeros(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatZeros", rows, cols))
+pub matOnes(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatOnes", rows, cols))
+
+# Mat operations
+pub matRows(m: Mat) -> Int = __native__("Nalgebra.dmatRows", m.data)
+pub matCols(m: Mat) -> Int = __native__("Nalgebra.dmatCols", m.data)
+pub matGet(m: Mat, row: Int, col: Int) -> Float = __native__("Nalgebra.dmatGet", m.data, row, col)
+pub matTranspose(m: Mat) -> Mat = Mat(__native__("Nalgebra.dmatTranspose", m.data))
+pub matTrace(m: Mat) -> Float = __native__("Nalgebra.dmatTrace", m.data)
+pub matDeterminant(m: Mat) -> Float = __native__("Nalgebra.dmatDeterminant", m.data)
+pub matInverse(m: Mat) -> Mat = Mat(__native__("Nalgebra.dmatInverse", m.data))
+pub matScale(m: Mat, s: Float) -> Mat = Mat(__native__("Nalgebra.dmatScale", m.data, s))
+pub matPow(m: Mat, n: Int) -> Mat = Mat(__native__("Nalgebra.dmatPow", m.data, n))
+pub matMulVec(m: Mat, v: Vec) -> Vec = Vec(__native__("Nalgebra.dmatMulVec", m.data, v.data))
+pub matGetRow(m: Mat, row: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetRow", m.data, row))
+pub matGetCol(m: Mat, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", m.data, col))
 
 # =============================================================================
-# DVector - Dynamic-Sized Vector Operations
+# Raw List Functions (legacy API - works with plain lists)
 # =============================================================================
 
-# Create a dynamic vector from a list
+# DVector operations
 pub dvec(list) = __native__("Nalgebra.dvec", list)
-
-# Create a zero vector of length n
 pub dvecZeros(n) = __native__("Nalgebra.dvecZeros", n)
-
-# Create a vector of ones of length n
 pub dvecOnes(n) = __native__("Nalgebra.dvecOnes", n)
-
-# Add two DVectors
 pub dvecAdd(a, b) = __native__("Nalgebra.dvecAdd", a, b)
-
-# Subtract two DVectors
 pub dvecSub(a, b) = __native__("Nalgebra.dvecSub", a, b)
-
-# Multiply DVector by scalar
 pub dvecScale(v, s) = __native__("Nalgebra.dvecScale", v, s)
-
-# Dot product of two DVectors
 pub dvecDot(a, b) = __native__("Nalgebra.dvecDot", a, b)
-
-# Euclidean norm (length) of DVector
 pub dvecNorm(v) = __native__("Nalgebra.dvecNorm", v)
-
-# Normalize DVector to unit length
 pub dvecNormalize(v) = __native__("Nalgebra.dvecNormalize", v)
-
-# Get the length (number of elements) of DVector
 pub dvecLen(v) = __native__("Nalgebra.dvecLen", v)
-
-# Get element at index i
 pub dvecGet(v, i) = __native__("Nalgebra.dvecGet", v, i)
-
-# Set element at index i (returns new vector)
 pub dvecSet(v, i, val) = __native__("Nalgebra.dvecSet", v, i, val)
-
-# Component-wise (Hadamard) multiplication of two DVectors
 pub dvecComponentMul(a, b) = __native__("Nalgebra.dvecMap", a, b)
-
-# Sum of all elements
 pub dvecSum(v) = __native__("Nalgebra.dvecSum", v)
-
-# Minimum element
 pub dvecMin(v) = __native__("Nalgebra.dvecMin", v)
-
-# Maximum element
 pub dvecMax(v) = __native__("Nalgebra.dvecMax", v)
-
-# =============================================================================
-# DMatrix - Dynamic-Sized Matrix Operations
-# =============================================================================
-
-# Create a matrix from nested list (row-major)
-# Example: dmat([[1,2], [3,4]]) creates 2x2 matrix
-pub dmat(rows) = __native__("Nalgebra.dmat", rows)
-
-# Create n x n identity matrix
-pub dmatIdentity(n) = __native__("Nalgebra.dmatIdentity", n)
-
-# Create rows x cols zero matrix
-pub dmatZeros(rows, cols) = __native__("Nalgebra.dmatZeros", rows, cols)
-
-# Create rows x cols matrix of ones
-pub dmatOnes(rows, cols) = __native__("Nalgebra.dmatOnes", rows, cols)
-
-# Create matrix from list of row vectors
-pub dmatFromRows(rows) = __native__("Nalgebra.dmatFromRows", rows)
-
-# Create matrix from list of column vectors
-pub dmatFromCols(cols) = __native__("Nalgebra.dmatFromCols", cols)
-
-# Add two matrices
-pub dmatAdd(a, b) = __native__("Nalgebra.dmatAdd", a, b)
-
-# Subtract two matrices
-pub dmatSub(a, b) = __native__("Nalgebra.dmatSub", a, b)
-
-# Matrix multiplication
-pub dmatMul(a, b) = __native__("Nalgebra.dmatMul", a, b)
-
-# Matrix-vector multiplication
-pub dmatMulVec(m, v) = __native__("Nalgebra.dmatMulVec", m, v)
-
-# Multiply matrix by scalar
-pub dmatScale(m, s) = __native__("Nalgebra.dmatScale", m, s)
-
-# Transpose matrix
-pub dmatTranspose(m) = __native__("Nalgebra.dmatTranspose", m)
-
-# Get number of rows
-pub dmatRows(m) = __native__("Nalgebra.dmatRows", m)
-
-# Get number of columns
-pub dmatCols(m) = __native__("Nalgebra.dmatCols", m)
-
-# Get element at (row, col)
-pub dmatGet(m, row, col) = __native__("Nalgebra.dmatGet", m, row, col)
-
-# Set element at (row, col) (returns new matrix)
-pub dmatSet(m, row, col, val) = __native__("Nalgebra.dmatSet", m, row, col, val)
-
-# Get row as vector
-pub dmatGetRow(m, row) = __native__("Nalgebra.dmatGetRow", m, row)
-
-# Get column as vector
-pub dmatGetCol(m, col) = __native__("Nalgebra.dmatGetCol", m, col)
-
-# Trace (sum of diagonal elements) - only for square matrices
-pub dmatTrace(m) = __native__("Nalgebra.dmatTrace", m)
-
-# Determinant - only for square matrices
-pub dmatDeterminant(m) = __native__("Nalgebra.dmatDeterminant", m)
-
-# Matrix inverse - only for square, non-singular matrices
-pub dmatInverse(m) = __native__("Nalgebra.dmatInverse", m)
-
-# =============================================================================
-# Convenience Functions
-# =============================================================================
-
-# Distance between two points (as DVectors)
 pub dvecDistance(a, b) = dvecNorm(dvecSub(b, a))
-
-# Linear interpolation between two DVectors
-# Returns a + t * (b - a)
 pub dvecLerp(a, b, t) = dvecAdd(a, dvecScale(dvecSub(b, a), t))
 
-# Create a diagonal matrix from a vector
-# Note: Use __native__ call directly for complex iteration
+# DMatrix operations
+pub dmat(rows) = __native__("Nalgebra.dmat", rows)
+pub dmatIdentity(n) = __native__("Nalgebra.dmatIdentity", n)
+pub dmatZeros(rows, cols) = __native__("Nalgebra.dmatZeros", rows, cols)
+pub dmatOnes(rows, cols) = __native__("Nalgebra.dmatOnes", rows, cols)
+pub dmatFromRows(rows) = __native__("Nalgebra.dmatFromRows", rows)
+pub dmatFromCols(cols) = __native__("Nalgebra.dmatFromCols", cols)
+pub dmatAdd(a, b) = __native__("Nalgebra.dmatAdd", a, b)
+pub dmatSub(a, b) = __native__("Nalgebra.dmatSub", a, b)
+pub dmatMul(a, b) = __native__("Nalgebra.dmatMul", a, b)
+pub dmatMulVec(m, v) = __native__("Nalgebra.dmatMulVec", m, v)
+pub dmatScale(m, s) = __native__("Nalgebra.dmatScale", m, s)
+pub dmatTranspose(m) = __native__("Nalgebra.dmatTranspose", m)
+pub dmatRows(m) = __native__("Nalgebra.dmatRows", m)
+pub dmatCols(m) = __native__("Nalgebra.dmatCols", m)
+pub dmatGet(m, row, col) = __native__("Nalgebra.dmatGet", m, row, col)
+pub dmatSet(m, row, col, val) = __native__("Nalgebra.dmatSet", m, row, col, val)
+pub dmatGetRow(m, row) = __native__("Nalgebra.dmatGetRow", m, row)
+pub dmatGetCol(m, col) = __native__("Nalgebra.dmatGetCol", m, col)
+pub dmatTrace(m) = __native__("Nalgebra.dmatTrace", m)
+pub dmatDeterminant(m) = __native__("Nalgebra.dmatDeterminant", m)
+pub dmatInverse(m) = __native__("Nalgebra.dmatInverse", m)
 pub dmatDiag(v) = __native__("Nalgebra.dmatDiag", v)
-
-# Matrix power (positive integer only)
 pub dmatPow(m, n) = __native__("Nalgebra.dmatPow", m, n)
-
-# Check if matrix is square
 pub dmatIsSquare(m) = dmatRows(m) == dmatCols(m)
-
-# Get matrix shape as tuple
 pub dmatShape(m) = (dmatRows(m), dmatCols(m))
