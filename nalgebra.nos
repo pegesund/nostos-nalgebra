@@ -30,12 +30,23 @@ trait Num
     div(self, other: Self) -> Self
 end
 
+# Show trait for pretty printing
+trait Show
+    show(self) -> String
+end
+
 Vec: Num
     add(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecAdd", self.data, other.data))
     sub(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecSub", self.data, other.data))
     mul(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecMap", self.data, other.data))
     div(self, other: Vec) -> Vec = Vec(__native__("Nalgebra.dvecDiv", self.data, other.data))
 end
+
+# Scalar operations for Vec - used by compiler operator dispatch fallback
+pub vecAddScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecAddScalar", v.data, s))
+pub vecSubScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecSubScalar", v.data, s))
+pub vecMulScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", v.data, s))
+pub vecDivScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecDivScalar", v.data, s))
 
 # Vec constructor - creates native handle from list
 pub vec(data: List) -> Vec = Vec(__native__("Nalgebra.dvec", data))
@@ -58,6 +69,21 @@ pub vecScale(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", v.d
 pub vecDistance(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", b.data, a.data))
 pub vecLerp(a: Vec, b: Vec, t: Float) -> Vec = a + vecScale(b - a, t)
 pub vecToList(v: Vec) -> List = __native__("Nalgebra.dvecToList", v.data)
+
+# Vec Show implementation with max element limit
+Vec: Show
+    show(self) -> String = {
+        list = __native__("Nalgebra.dvecToList", self.data)
+        len = length(list)
+        maxShow = 10
+        showList = if len <= maxShow then list else take(list, maxShow)
+        strs = showList.map(x => show(x))
+        joined = if isEmpty(strs) then ""
+                 else tail(strs).fold(head(strs), (acc, s) => acc ++ ", " ++ s)
+        suffix = if len <= maxShow then "" else ", ... (" ++ show(len) ++ " total)"
+        "Vec[" ++ joined ++ suffix ++ "]"
+    }
+end
 
 # =============================================================================
 # Mat Type - Dynamic Matrix with Operator Overloading
@@ -101,3 +127,30 @@ pub matGetCol(m: Mat, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", m
 pub matIsSquare(m: Mat) -> Bool = matRows(m) == matCols(m)
 pub matShape(m: Mat) -> (Int, Int) = (matRows(m), matCols(m))
 pub matToList(m: Mat) -> List = __native__("Nalgebra.dmatToList", m.data)
+
+# Mat Show implementation with row/col limit
+Mat: Show
+    show(self) -> String = {
+        rows = __native__("Nalgebra.dmatRows", self.data)
+        cols = __native__("Nalgebra.dmatCols", self.data)
+        maxRows = 5
+        maxCols = 10
+        numRows = min(rows, maxRows)
+        numCols = min(cols, maxCols)
+
+        # Format each row
+        rowStrs = range(0, numRows).map(r => {
+            rowData = range(0, numCols).map(c => show(__native__("Nalgebra.dmatGet", self.data, r, c)))
+            rowStr = if isEmpty(rowData) then ""
+                     else tail(rowData).fold(head(rowData), (acc, s) => acc ++ ", " ++ s)
+            if cols > maxCols then "[" ++ rowStr ++ ", ...]" else "[" ++ rowStr ++ "]"
+        })
+
+        joinedRows = if isEmpty(rowStrs) then ""
+                     else tail(rowStrs).fold(head(rowStrs), (acc, s) => acc ++ ",\n  " ++ s)
+        header = "Mat(" ++ show(rows) ++ "x" ++ show(cols) ++ ")"
+        suffix = if rows > maxRows then ",\n  ..." else ""
+
+        header ++ "[\n  " ++ joinedRows ++ suffix ++ "\n]"
+    }
+end

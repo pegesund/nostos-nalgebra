@@ -48,6 +48,9 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dvecAdd", dvec_add);
     reg.add("Nalgebra.dvecSub", dvec_sub);
     reg.add("Nalgebra.dvecScale", dvec_scale);
+    reg.add("Nalgebra.dvecAddScalar", dvec_add_scalar);
+    reg.add("Nalgebra.dvecSubScalar", dvec_sub_scalar);
+    reg.add("Nalgebra.dvecDivScalar", dvec_div_scalar);
     reg.add("Nalgebra.dvecDot", dvec_dot);
     reg.add("Nalgebra.dvecNorm", dvec_norm);
     reg.add("Nalgebra.dvecNormalize", dvec_normalize);
@@ -213,6 +216,27 @@ fn dvec_scale(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let v = get_dvec(&args[0])?;
     let s = args[1].as_f64()?;
     Ok(dvec_handle(v * s))
+}
+
+fn dvec_add_scalar(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let v = get_dvec(&args[0])?;
+    let s = args[1].as_f64()?;
+    Ok(dvec_handle(v.add_scalar(s)))
+}
+
+fn dvec_sub_scalar(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let v = get_dvec(&args[0])?;
+    let s = args[1].as_f64()?;
+    Ok(dvec_handle(v.add_scalar(-s)))
+}
+
+fn dvec_div_scalar(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let v = get_dvec(&args[0])?;
+    let s = args[1].as_f64()?;
+    if s == 0.0 {
+        return Err("Division by zero".to_string());
+    }
+    Ok(dvec_handle(v / s))
 }
 
 fn dvec_dot(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
