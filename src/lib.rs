@@ -63,6 +63,9 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dvecMax", dvec_max);
     reg.add("Nalgebra.dvecDiv", dvec_div);
     reg.add("Nalgebra.dvecToList", dvec_to_list);
+    reg.add("Nalgebra.dvecRange", dvec_range);
+    reg.add("Nalgebra.dvecLinspace", dvec_linspace);
+    reg.add("Nalgebra.dvecFromSeed", dvec_from_seed);
 
     // DMatrix operations (dynamic-sized matrices)
     reg.add("Nalgebra.dmat", dmat_new);
@@ -89,6 +92,7 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dmatDiag", dmat_diag);
     reg.add("Nalgebra.dmatPow", dmat_pow);
     reg.add("Nalgebra.dmatToList", dmat_to_list);
+    reg.add("Nalgebra.dmatFromSeed", dmat_from_seed);
 
     // Stats functions for GC testing
     reg.add("Nalgebra.allocCount", stats_alloc_count);
@@ -333,6 +337,40 @@ fn dvec_to_list(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     Ok(Value::List(Arc::new(
         v.iter().map(|&x| Value::Float(x)).collect()
     )))
+}
+
+// Create vector from integer range [start, end) as floats
+fn dvec_range(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let start = args[0].as_i64()?;
+    let end = args[1].as_i64()?;
+    let data: Vec<f64> = (start..end).map(|x| x as f64).collect();
+    Ok(dvec_handle(DVector::from_vec(data)))
+}
+
+// Create vector with n evenly spaced values from start to end
+fn dvec_linspace(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let start = args[0].as_f64()?;
+    let end = args[1].as_f64()?;
+    let n = args[2].as_i64()? as usize;
+    if n < 2 {
+        return Err("linspace requires at least 2 points".to_string());
+    }
+    let step = (end - start) / (n - 1) as f64;
+    let data: Vec<f64> = (0..n).map(|i| start + i as f64 * step).collect();
+    Ok(dvec_handle(DVector::from_vec(data)))
+}
+
+// Create pseudo-random vector matching genList(n, seed) for benchmarking
+fn dvec_from_seed(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let n = args[0].as_i64()? as usize;
+    let seed = args[1].as_i64()?;
+    let data: Vec<f64> = (0..n)
+        .map(|i| {
+            let x = ((i as i64) * 1103515245 + seed) % 2147483647;
+            ((x % 1000000) as f64) / 1000000.0
+        })
+        .collect();
+    Ok(dvec_handle(DVector::from_vec(data)))
 }
 
 // ==================== DMatrix Operations ====================
@@ -595,6 +633,24 @@ fn dmat_to_list(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
         })
         .collect();
     Ok(Value::List(Arc::new(rows)))
+}
+
+// Create pseudo-random matrix matching genMatrixData(rows, cols, seed)
+fn dmat_from_seed(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let rows = args[0].as_i64()? as usize;
+    let cols = args[1].as_i64()? as usize;
+    let seed = args[2].as_i64()?;
+
+    let data: Vec<f64> = (0..rows)
+        .flat_map(|r| {
+            let row_seed = seed + (r as i64) * 1000;
+            (0..cols).map(move |c| {
+                let x = ((c as i64) * 1103515245 + row_seed) % 2147483647;
+                ((x % 1000000) as f64) / 1000000.0
+            })
+        })
+        .collect();
+    Ok(dmat_handle(DMatrix::from_row_slice(rows, cols, &data)))
 }
 
 // ==================== Stats Functions (for GC testing) ====================

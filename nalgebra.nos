@@ -54,6 +54,9 @@ pub vec(data: List) -> Vec = Vec(__native__("Nalgebra.dvec", data))
 # Vec factory functions
 pub vecZeros(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
 pub vecOnes(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecOnes", n))
+pub vecRange(start: Int, stop: Int) -> Vec = Vec(__native__("Nalgebra.dvecRange", start, stop))
+pub vecLinspace(start: Float, stop: Float, n: Int) -> Vec = Vec(__native__("Nalgebra.dvecLinspace", start, stop, n))
+pub vecFromSeed(n: Int, seed: Int) -> Vec = Vec(__native__("Nalgebra.dvecFromSeed", n, seed))
 
 # Vec operations
 pub vecDot(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecDot", a.data, b.data)
@@ -109,6 +112,7 @@ pub matOnes(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatOnes", r
 pub matFromRows(rows: List) -> Mat = Mat(__native__("Nalgebra.dmatFromRows", rows))
 pub matFromCols(cols: List) -> Mat = Mat(__native__("Nalgebra.dmatFromCols", cols))
 pub matDiag(v: Vec) -> Mat = Mat(__native__("Nalgebra.dmatDiag", v.data))
+pub matFromSeed(rows: Int, cols: Int, seed: Int) -> Mat = Mat(__native__("Nalgebra.dmatFromSeed", rows, cols, seed))
 
 # Mat operations
 pub matRows(m: Mat) -> Int = __native__("Nalgebra.dmatRows", m.data)
