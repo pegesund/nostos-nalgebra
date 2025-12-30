@@ -57,6 +57,7 @@ pub vecOnes(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecOnes", n))
 pub vecRange(start: Int, stop: Int) -> Vec = Vec(__native__("Nalgebra.dvecRange", start, stop))
 pub vecLinspace(start: Float, stop: Float, n: Int) -> Vec = Vec(__native__("Nalgebra.dvecLinspace", start, stop, n))
 pub vecFromSeed(n: Int, seed: Int) -> Vec = Vec(__native__("Nalgebra.dvecFromSeed", n, seed))
+pub vecMake(n: Int, value: Float) -> Vec = Vec(__native__("Nalgebra.dvecMake", n, value))
 
 # Vec operations
 pub vecDot(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecDot", a.data, b.data)

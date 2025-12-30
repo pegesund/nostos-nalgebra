@@ -66,6 +66,7 @@ fn register(reg: &mut ExtRegistry) {
     reg.add("Nalgebra.dvecRange", dvec_range);
     reg.add("Nalgebra.dvecLinspace", dvec_linspace);
     reg.add("Nalgebra.dvecFromSeed", dvec_from_seed);
+    reg.add("Nalgebra.dvecMake", dvec_make);
 
     // DMatrix operations (dynamic-sized matrices)
     reg.add("Nalgebra.dmat", dmat_new);
@@ -358,6 +359,13 @@ fn dvec_linspace(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
     let step = (end - start) / (n - 1) as f64;
     let data: Vec<f64> = (0..n).map(|i| start + i as f64 * step).collect();
     Ok(dvec_handle(DVector::from_vec(data)))
+}
+
+// Create vector of length n filled with initial value
+fn dvec_make(args: &[Value], _ctx: &ExtContext) -> Result<Value, String> {
+    let n = args[0].as_i64()? as usize;
+    let value = args[1].as_f64()?;
+    Ok(dvec_handle(DVector::from_element(n, value)))
 }
 
 // Create pseudo-random vector matching genList(n, seed) for benchmarking
