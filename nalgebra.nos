@@ -20,8 +20,8 @@
 # Vec Type - Dynamic Vector with Operator Overloading
 # =============================================================================
 
-# Native handle wrapper - data stores the native pointer
-pub type Vec = { data: Any }
+# Native handle wrapper - data stores the native DVector pointer
+pub type Vec = { data: DVector }
 
 trait Num
     add(self, other: Self) -> Self
@@ -49,7 +49,7 @@ pub vecMulScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale",
 pub vecDivScalar(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecDivScalar", v.data, s))
 
 # Vec constructor - creates native handle from list
-pub vec(data: List) -> Vec = Vec(__native__("Nalgebra.dvec", data))
+pub vec(data: List[Float]) -> Vec = Vec(__native__("Nalgebra.dvec", data))
 
 # Vec factory functions
 pub vecZeros(n: Int) -> Vec = Vec(__native__("Nalgebra.dvecZeros", n))
@@ -72,7 +72,7 @@ pub vecMax(v: Vec) -> Float = __native__("Nalgebra.dvecMax", v.data)
 pub vecScale(v: Vec, s: Float) -> Vec = Vec(__native__("Nalgebra.dvecScale", v.data, s))
 pub vecDistance(a: Vec, b: Vec) -> Float = __native__("Nalgebra.dvecNorm", __native__("Nalgebra.dvecSub", b.data, a.data))
 pub vecLerp(a: Vec, b: Vec, t: Float) -> Vec = a + vecScale(b - a, t)
-pub vecToList(v: Vec) -> List = __native__("Nalgebra.dvecToList", v.data)
+pub vecToList(v: Vec) -> List[Float] = __native__("Nalgebra.dvecToList", v.data)
 
 # Vec Show implementation with max element limit
 Vec: Show
@@ -93,8 +93,8 @@ end
 # Mat Type - Dynamic Matrix with Operator Overloading
 # =============================================================================
 
-# Native handle wrapper - data stores the native pointer
-pub type Mat = { data: Any }
+# Native handle wrapper - data stores the native DMatrix pointer
+pub type Mat = { data: DMatrix }
 
 Mat: Num
     add(self, other: Mat) -> Mat = Mat(__native__("Nalgebra.dmatAdd", self.data, other.data))
@@ -104,14 +104,14 @@ Mat: Num
 end
 
 # Mat constructor - creates native handle from nested list
-pub mat(data: List) -> Mat = Mat(__native__("Nalgebra.dmat", data))
+pub mat(data: List[List[Float]]) -> Mat = Mat(__native__("Nalgebra.dmat", data))
 
 # Mat factory functions
 pub matIdentity(n: Int) -> Mat = Mat(__native__("Nalgebra.dmatIdentity", n))
 pub matZeros(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatZeros", rows, cols))
 pub matOnes(rows: Int, cols: Int) -> Mat = Mat(__native__("Nalgebra.dmatOnes", rows, cols))
-pub matFromRows(rows: List) -> Mat = Mat(__native__("Nalgebra.dmatFromRows", rows))
-pub matFromCols(cols: List) -> Mat = Mat(__native__("Nalgebra.dmatFromCols", cols))
+pub matFromRows(rows: List[List[Float]]) -> Mat = Mat(__native__("Nalgebra.dmatFromRows", rows))
+pub matFromCols(cols: List[List[Float]]) -> Mat = Mat(__native__("Nalgebra.dmatFromCols", cols))
 pub matDiag(v: Vec) -> Mat = Mat(__native__("Nalgebra.dmatDiag", v.data))
 pub matFromSeed(rows: Int, cols: Int, seed: Int) -> Mat = Mat(__native__("Nalgebra.dmatFromSeed", rows, cols, seed))
 
@@ -131,7 +131,7 @@ pub matGetRow(m: Mat, row: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetRow", m
 pub matGetCol(m: Mat, col: Int) -> Vec = Vec(__native__("Nalgebra.dmatGetCol", m.data, col))
 pub matIsSquare(m: Mat) -> Bool = matRows(m) == matCols(m)
 pub matShape(m: Mat) -> (Int, Int) = (matRows(m), matCols(m))
-pub matToList(m: Mat) -> List = __native__("Nalgebra.dmatToList", m.data)
+pub matToList(m: Mat) -> List[List[Float]] = __native__("Nalgebra.dmatToList", m.data)
 
 # Mat Show implementation with row/col limit
 Mat: Show

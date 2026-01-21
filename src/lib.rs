@@ -41,64 +41,68 @@ fn nalgebra_cleanup(ptr: usize, type_id: u64) {
 }
 
 fn register(reg: &mut ExtRegistry) {
-    // DVector operations (dynamic-sized vectors)
-    reg.add("Nalgebra.dvec", dvec_new);
-    reg.add("Nalgebra.dvecZeros", dvec_zeros);
-    reg.add("Nalgebra.dvecOnes", dvec_ones);
-    reg.add("Nalgebra.dvecAdd", dvec_add);
-    reg.add("Nalgebra.dvecSub", dvec_sub);
-    reg.add("Nalgebra.dvecScale", dvec_scale);
-    reg.add("Nalgebra.dvecAddScalar", dvec_add_scalar);
-    reg.add("Nalgebra.dvecSubScalar", dvec_sub_scalar);
-    reg.add("Nalgebra.dvecDivScalar", dvec_div_scalar);
-    reg.add("Nalgebra.dvecDot", dvec_dot);
-    reg.add("Nalgebra.dvecNorm", dvec_norm);
-    reg.add("Nalgebra.dvecNormalize", dvec_normalize);
-    reg.add("Nalgebra.dvecLen", dvec_len);
-    reg.add("Nalgebra.dvecGet", dvec_get);
-    reg.add("Nalgebra.dvecSet", dvec_set);
-    reg.add("Nalgebra.dvecMap", dvec_component_mul);
-    reg.add("Nalgebra.dvecSum", dvec_sum);
-    reg.add("Nalgebra.dvecMin", dvec_min);
-    reg.add("Nalgebra.dvecMax", dvec_max);
-    reg.add("Nalgebra.dvecDiv", dvec_div);
-    reg.add("Nalgebra.dvecToList", dvec_to_list);
-    reg.add("Nalgebra.dvecRange", dvec_range);
-    reg.add("Nalgebra.dvecLinspace", dvec_linspace);
-    reg.add("Nalgebra.dvecFromSeed", dvec_from_seed);
-    reg.add("Nalgebra.dvecMake", dvec_make);
+    // === Declare opaque types ===
+    reg.add_opaque_type("DVector");
+    reg.add_opaque_type("DMatrix");
 
-    // DMatrix operations (dynamic-sized matrices)
-    reg.add("Nalgebra.dmat", dmat_new);
-    reg.add("Nalgebra.dmatIdentity", dmat_identity);
-    reg.add("Nalgebra.dmatZeros", dmat_zeros);
-    reg.add("Nalgebra.dmatOnes", dmat_ones);
-    reg.add("Nalgebra.dmatFromRows", dmat_from_rows);
-    reg.add("Nalgebra.dmatFromCols", dmat_from_cols);
-    reg.add("Nalgebra.dmatAdd", dmat_add);
-    reg.add("Nalgebra.dmatSub", dmat_sub);
-    reg.add("Nalgebra.dmatMul", dmat_mul);
-    reg.add("Nalgebra.dmatMulVec", dmat_mul_vec);
-    reg.add("Nalgebra.dmatScale", dmat_scale);
-    reg.add("Nalgebra.dmatTranspose", dmat_transpose);
-    reg.add("Nalgebra.dmatRows", dmat_rows);
-    reg.add("Nalgebra.dmatCols", dmat_cols);
-    reg.add("Nalgebra.dmatGet", dmat_get);
-    reg.add("Nalgebra.dmatSet", dmat_set);
-    reg.add("Nalgebra.dmatGetRow", dmat_get_row);
-    reg.add("Nalgebra.dmatGetCol", dmat_get_col);
-    reg.add("Nalgebra.dmatTrace", dmat_trace);
-    reg.add("Nalgebra.dmatDeterminant", dmat_determinant);
-    reg.add("Nalgebra.dmatInverse", dmat_inverse);
-    reg.add("Nalgebra.dmatDiag", dmat_diag);
-    reg.add("Nalgebra.dmatPow", dmat_pow);
-    reg.add("Nalgebra.dmatToList", dmat_to_list);
-    reg.add("Nalgebra.dmatFromSeed", dmat_from_seed);
+    // === DVector operations (dynamic-sized vectors) ===
+    reg.add_fn("Nalgebra.dvec", "(List[Float]) -> DVector", dvec_new);
+    reg.add_fn("Nalgebra.dvecZeros", "(Int) -> DVector", dvec_zeros);
+    reg.add_fn("Nalgebra.dvecOnes", "(Int) -> DVector", dvec_ones);
+    reg.add_fn("Nalgebra.dvecAdd", "(DVector, DVector) -> DVector", dvec_add);
+    reg.add_fn("Nalgebra.dvecSub", "(DVector, DVector) -> DVector", dvec_sub);
+    reg.add_fn("Nalgebra.dvecScale", "(DVector, Float) -> DVector", dvec_scale);
+    reg.add_fn("Nalgebra.dvecAddScalar", "(DVector, Float) -> DVector", dvec_add_scalar);
+    reg.add_fn("Nalgebra.dvecSubScalar", "(DVector, Float) -> DVector", dvec_sub_scalar);
+    reg.add_fn("Nalgebra.dvecDivScalar", "(DVector, Float) -> DVector", dvec_div_scalar);
+    reg.add_fn("Nalgebra.dvecDot", "(DVector, DVector) -> Float", dvec_dot);
+    reg.add_fn("Nalgebra.dvecNorm", "(DVector) -> Float", dvec_norm);
+    reg.add_fn("Nalgebra.dvecNormalize", "(DVector) -> DVector", dvec_normalize);
+    reg.add_fn("Nalgebra.dvecLen", "(DVector) -> Int", dvec_len);
+    reg.add_fn("Nalgebra.dvecGet", "(DVector, Int) -> Float", dvec_get);
+    reg.add_fn("Nalgebra.dvecSet", "(DVector, Int, Float) -> DVector", dvec_set);
+    reg.add_fn("Nalgebra.dvecMap", "(DVector, DVector) -> DVector", dvec_component_mul);
+    reg.add_fn("Nalgebra.dvecSum", "(DVector) -> Float", dvec_sum);
+    reg.add_fn("Nalgebra.dvecMin", "(DVector) -> Float", dvec_min);
+    reg.add_fn("Nalgebra.dvecMax", "(DVector) -> Float", dvec_max);
+    reg.add_fn("Nalgebra.dvecDiv", "(DVector, DVector) -> DVector", dvec_div);
+    reg.add_fn("Nalgebra.dvecToList", "(DVector) -> List[Float]", dvec_to_list);
+    reg.add_fn("Nalgebra.dvecRange", "(Int, Int) -> DVector", dvec_range);
+    reg.add_fn("Nalgebra.dvecLinspace", "(Float, Float, Int) -> DVector", dvec_linspace);
+    reg.add_fn("Nalgebra.dvecFromSeed", "(Int, Int) -> DVector", dvec_from_seed);
+    reg.add_fn("Nalgebra.dvecMake", "(Int, Float) -> DVector", dvec_make);
 
-    // Stats functions for GC testing
-    reg.add("Nalgebra.allocCount", stats_alloc_count);
-    reg.add("Nalgebra.cleanupCount", stats_cleanup_count);
-    reg.add("Nalgebra.resetStats", stats_reset);
+    // === DMatrix operations (dynamic-sized matrices) ===
+    reg.add_fn("Nalgebra.dmat", "(List[List[Float]]) -> DMatrix", dmat_new);
+    reg.add_fn("Nalgebra.dmatIdentity", "(Int) -> DMatrix", dmat_identity);
+    reg.add_fn("Nalgebra.dmatZeros", "(Int, Int) -> DMatrix", dmat_zeros);
+    reg.add_fn("Nalgebra.dmatOnes", "(Int, Int) -> DMatrix", dmat_ones);
+    reg.add_fn("Nalgebra.dmatFromRows", "(List[DVector]) -> DMatrix", dmat_from_rows);
+    reg.add_fn("Nalgebra.dmatFromCols", "(List[DVector]) -> DMatrix", dmat_from_cols);
+    reg.add_fn("Nalgebra.dmatAdd", "(DMatrix, DMatrix) -> DMatrix", dmat_add);
+    reg.add_fn("Nalgebra.dmatSub", "(DMatrix, DMatrix) -> DMatrix", dmat_sub);
+    reg.add_fn("Nalgebra.dmatMul", "(DMatrix, DMatrix) -> DMatrix", dmat_mul);
+    reg.add_fn("Nalgebra.dmatMulVec", "(DMatrix, DVector) -> DVector", dmat_mul_vec);
+    reg.add_fn("Nalgebra.dmatScale", "(DMatrix, Float) -> DMatrix", dmat_scale);
+    reg.add_fn("Nalgebra.dmatTranspose", "(DMatrix) -> DMatrix", dmat_transpose);
+    reg.add_fn("Nalgebra.dmatRows", "(DMatrix) -> Int", dmat_rows);
+    reg.add_fn("Nalgebra.dmatCols", "(DMatrix) -> Int", dmat_cols);
+    reg.add_fn("Nalgebra.dmatGet", "(DMatrix, Int, Int) -> Float", dmat_get);
+    reg.add_fn("Nalgebra.dmatSet", "(DMatrix, Int, Int, Float) -> DMatrix", dmat_set);
+    reg.add_fn("Nalgebra.dmatGetRow", "(DMatrix, Int) -> DVector", dmat_get_row);
+    reg.add_fn("Nalgebra.dmatGetCol", "(DMatrix, Int) -> DVector", dmat_get_col);
+    reg.add_fn("Nalgebra.dmatTrace", "(DMatrix) -> Float", dmat_trace);
+    reg.add_fn("Nalgebra.dmatDeterminant", "(DMatrix) -> Float", dmat_determinant);
+    reg.add_fn("Nalgebra.dmatInverse", "(DMatrix) -> DMatrix", dmat_inverse);
+    reg.add_fn("Nalgebra.dmatDiag", "(DVector) -> DMatrix", dmat_diag);
+    reg.add_fn("Nalgebra.dmatPow", "(DMatrix, Int) -> DMatrix", dmat_pow);
+    reg.add_fn("Nalgebra.dmatToList", "(DMatrix) -> List[List[Float]]", dmat_to_list);
+    reg.add_fn("Nalgebra.dmatFromSeed", "(Int, Int, Int) -> DMatrix", dmat_from_seed);
+
+    // === Stats functions for GC testing ===
+    reg.add_fn("Nalgebra.allocCount", "() -> Int", stats_alloc_count);
+    reg.add_fn("Nalgebra.cleanupCount", "() -> Int", stats_cleanup_count);
+    reg.add_fn("Nalgebra.resetStats", "() -> Unit", stats_reset);
 }
 
 // ==================== Helper Functions ====================
